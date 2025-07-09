@@ -13,7 +13,22 @@ public class Turret : MonoBehaviour
     private float fireCountDown = 0;
     private Transform shootPoint;
     public GameObject bulletPrefab;
-    
+    private float maxTimeCharge = 10f;
+    private float currentTimeCharge;
+    public NormalState normalState;
+    public RageState rageState;
+    public ChargeState chargeState;
+    private ITurretState currentState;
+    void Awake()
+    {
+        normalState = new NormalState(this);
+        rageState = new RageState(this);
+        chargeState = new ChargeState(this);
+
+        currentState = normalState;
+
+        currentTimeCharge = 0;
+    }
     // Start is called before the first frame update
     void Start()
     {
@@ -21,6 +36,7 @@ public class Turret : MonoBehaviour
         shootPoint = partToRotate.transform.Find("ShootPoint");
         InvokeRepeating("TurretUpdate",0f,0.1f);
     }
+
     void TurretUpdate()
     {
         GameObject[] allEnemy = GameObject.FindGameObjectsWithTag("Enemy");
@@ -48,24 +64,36 @@ public class Turret : MonoBehaviour
 
     void FixedUpdate()
     {
+        currentTimeCharge += Time.deltaTime;
+        if (currentTimeCharge >= maxTimeCharge)
+        {
+            ChangeState(chargeState);
+            
+        }
+        Shooting();
+        
+    }
+
+    void Shooting()
+    {
         fireCountDown -= Time.deltaTime;
         if(target == null) return;
         Vector3 toTarget = target.transform.position - transform.position;
         Quaternion look = Quaternion.LookRotation(toTarget);
-        partToRotate.transform.rotation = Quaternion.Lerp(partToRotate.transform.rotation,look,Time.deltaTime * speedRotate);
+        partToRotate.transform.rotation = Quaternion.Lerp(partToRotate.transform.rotation,look,Time.deltaTime * speedRotate * 100);
         partToRotate.transform.rotation = Quaternion.Euler(0, partToRotate.transform.eulerAngles.y,0);
-        
+
         // Debug.Log(Quaternion.Angle(look, partToRotate.transform.rotation));
-        if(fireCountDown <= 0 && Quaternion.Angle(look, partToRotate.transform.rotation) <= 14f )
+        if (fireCountDown <= 0 )
         {
-            Shoot();
+            currentState?.Update();
             fireCountDown = fireRate;
+            currentTimeCharge = 0;
         }
-        
     }
-    void Shoot()
+    public void Shoot()
     {
-        GameObject that = Instantiate (bulletPrefab,shootPoint.position,shootPoint.rotation);
+        GameObject that = Instantiate(bulletPrefab,shootPoint.position,shootPoint.rotation);
         Bullet bullet = that.GetComponent<Bullet>();
         if(bullet != null)
         {
@@ -73,9 +101,28 @@ public class Turret : MonoBehaviour
         }
         
     }
+    
+    public void ShootMaxDamage()
+    {
+        GameObject that = Instantiate(bulletPrefab,shootPoint.position,shootPoint.rotation);
+        Bullet bullet = that.GetComponent<Bullet>();
+        bullet.damgePerBullet = float.MaxValue;
+        if (bullet != null)
+        {
+            bullet.GetTarget(target);
+        }
+        
+    }
+
+    public void ChangeState(ITurretState newStates)
+    {
+        currentState?.Exit();
+        currentState = newStates;
+        currentState?.Enter();
+    }
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position,range);
+        Gizmos.DrawWireSphere(transform.position, range);
     }
 }
