@@ -6,97 +6,115 @@ using UnityEngine.SceneManagement;
 
 public class EnemyMove : MonoBehaviour
 {
-    
-    internal enum AI
-    {
-        GreedyBestFirstSearch,
-        AStar
-    }
-    [SerializeField] AI ai;
     public GreedBestFirstSearch gd;
-    private WaveFunctionCollapse wfc;
     public List<Cell> node1;
-    public int iOffset;
     public float speed;
-    int nodeIndex = 0;
+    public int nodeIndex = 0;
     public Vector3 offSetPos;
     Rigidbody rb;
     public float enemyHeath;
+    public Cell currentCell;
+    [HideInInspector] public List<IEnemyState> enemyStates;
+    public IEnemyState currentState;
+    void Awake()
+    {
+        gd = FindAnyObjectByType<GreedBestFirstSearch>();
+        enemyStates = new List<IEnemyState>();
+        StunState stunState = new StunState(this);
+        MoveState moveState = new MoveState(this, gd, offSetPos, speed);
+        DeathState deathState = new DeathState(this);
 
+        enemyStates.Add(stunState);
+        enemyStates.Add(moveState);
+        enemyStates.Add(deathState);
 
+        currentState = enemyStates[1];
+    }
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+
     }
     // Update is called once per frame
     void FixedUpdate()
     {
-        if(enemyHeath<=0)
+        if (enemyHeath <= 0)
         {
-            Destroy(gameObject);
+            ChangeState(enemyStates[2]);
         }
-        switch (ai)
-        {
-            case AI.GreedyBestFirstSearch:
-                GreedPath();
-                break;
-            case AI.AStar:
-                break;
-        }
-    }
-    void GreedPath()
-    {
-        if(gd == null)
-        {
-            gd = GameObject.Find("WaveFunction").GetComponent<GreedBestFirstSearch>();
-            wfc = GameObject.Find("WaveFunction").GetComponent<WaveFunctionCollapse>();
-            
-        }
-        if(node1.Count == 0)
-        {
-            node1 = gd.path;
-            currentCell = node1 [nodeIndex];
-            transform.LookAt(currentCell.transform);
-            
-        }else
-        {
-            Move();
-        }
+        currentState?.Update();
+        
 
     }
-    private Cell currentCell;
-    void Move()
+    #region Deprecated
+    // void GetPath()
+    // {
+
+
+    //     if (node1.Count == 0)
+    //     {
+    //         node1 = gd.path;
+    //         currentCell = node1[nodeIndex];
+    //         transform.LookAt(currentCell.transform);
+    //     }
+    //     else
+    //     {
+    //         Move();
+    //     }
+
+    // }
+    // void Move()
+    // {
+    //     Vector3 enemyPos = currentCell.transform.position + offSetPos;
+    //     Vector3 dir = enemyPos - transform.position;
+    //     Quaternion target = Quaternion.LookRotation(dir);
+    //     transform.rotation = Quaternion.Lerp(transform.rotation, target, Time.deltaTime * speed);
+    //     transform.Translate(Vector3.forward * speed * Time.deltaTime);
+    //     if (Vector3.Distance(transform.position, currentCell.transform.position) <= 1.5f)
+    //     {
+    //         NewNode();
+    //     }
+    // }
+    // void NewNode()
+    // {
+    //     if (nodeIndex < node1.Count)
+    //     {
+    //         nodeIndex++;
+    //         currentCell = node1[nodeIndex];
+    //     }
+    // }
+#endregion
+    void OnTriggerEnter(Collider collider)
     {
-        Vector3 enemyPos = currentCell.transform.position + offSetPos;
-        Vector3 dir =enemyPos - transform.position;
-        Quaternion target = Quaternion.LookRotation(dir);
-        transform.rotation = Quaternion.Lerp(transform.rotation,target,Time.deltaTime * speed);
-        transform.Translate(Vector3.forward * speed * Time.deltaTime);
-        if(Vector3.Distance(transform.position,currentCell.transform.position)<=1.5f)
-        {
-            NewNode();
-        }
-    }
-    void NewNode()
-    {
-        if(nodeIndex < node1.Count)
-        {
-            nodeIndex++;
-            currentCell = node1[nodeIndex];
-        }
-    }
-   
-   void OnTriggerEnter(Collider collider)
-   {
-        if(collider.CompareTag("In"))
+        if (collider.CompareTag("In"))
         {
             transform.gameObject.tag = "Enemy";
+
         }
-        if(collider.CompareTag("Finish"))
+
+        if (collider.CompareTag("Bullet"))
+        {
+            ChangeState(enemyStates[0]);
+        }
+        
+
+        if (collider.CompareTag("Finish"))
         {
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             SceneManager.LoadScene("EndScene");
         }
-   }
+    }
+
+    public void ChangeState(IEnemyState newState)
+    {
+        currentState?.Exit();
+        currentState = newState;
+        currentState?.Enter();
+    }
+
+    public void Die()
+    {
+        Destroy(this.gameObject);
+    }
 }

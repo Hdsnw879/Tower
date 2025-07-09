@@ -68,11 +68,11 @@ public class PlayerMovement : MonoBehaviour
     }
     void SpeedLimit()
     {
-        Vector3 currentSpeed = new Vector3(rb.velocity.x,0,rb.velocity.z);
+        Vector3 currentSpeed = new Vector3(rb.linearVelocity.x,0,rb.linearVelocity.z);
         if(currentSpeed.magnitude > speed)
         {
             Vector3 limitSpeed = currentSpeed.normalized * speed;
-            rb.velocity = new Vector3(limitSpeed.x,rb.velocity.y,limitSpeed.z);
+            rb.linearVelocity = new Vector3(limitSpeed.x,rb.linearVelocity.y,limitSpeed.z);
         }
     }
 }
